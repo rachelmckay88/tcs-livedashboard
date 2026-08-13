@@ -224,21 +224,63 @@ Fine for a demo; use real migrations once the board is in daily use.
 
 ---
 
-## Deploying
+## Deploying to Vercel
 
-Any Node host works. On Vercel:
+**SQLite cannot be used on Vercel.** Serverless filesystems are ephemeral —
+every deploy, and every cold start, would discard the database. Set up Postgres
+first (see *Moving to Postgres* above); everything below assumes that is done.
 
-1. Import the repository.
-2. Set `DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` in project settings.
-3. Deploy.
+1. **Create the database.** Neon's free tier is ample. Copy the pooled
+   connection string — it looks like
+   `postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`.
+   Use the **pooled** URL: serverless functions open a connection per invocation
+   and will exhaust a direct connection limit quickly.
 
-**Vercel note:** serverless filesystems are ephemeral, so SQLite will not
-survive there — use a hosted Postgres (Vercel Postgres, Neon, Supabase) and
-follow the swap above. SQLite is fine for local development or a small
-always-on box in the warehouse.
+2. **Import the repo** at [vercel.com/new](https://vercel.com/new). The
+   framework preset, build command and output are all detected automatically.
 
-Run `npm run db:deploy` as part of the release step so migrations are applied
-before the new build serves traffic.
+3. **Set the environment variables** in Settings → Environment Variables, for
+   Production *and* Preview:
+
+   | Variable               | Value                                        |
+   | ---------------------- | -------------------------------------------- |
+   | `DATABASE_URL`         | The pooled Neon connection string             |
+   | `ADMIN_PASSWORD`       | The shared warehouse password — **change it** |
+   | `ADMIN_SESSION_SECRET` | `openssl rand -base64 32`                     |
+
+   `npm run build` runs `prisma generate` first, so the client is always built
+   against the current schema.
+
+4. **Create the tables** — the new database is empty. Once, from your machine
+   with `DATABASE_URL` pointing at Neon:
+
+   ```bash
+   npx prisma migrate deploy     # or: npx prisma db push
+   ```
+
+5. **Publish the first day.** There is no seed data in production (the seed
+   script refuses to run there on purpose). Open `/admin`, sign in, and press
+   PUBLISH — until then the board correctly shows its "not yet published" state.
+
+### Is Vercel the right host?
+
+For this app, yes: it is a Next.js application with no long-running processes,
+no background workers and no filesystem state, which is exactly Vercel's shape.
+The free tier covers a dashboard used by one warehouse.
+
+The alternative worth knowing about is a host with a **persistent disk** — Railway,
+Render or Fly — where SQLite would keep working and there would be no database
+to manage at all. That is genuinely simpler for a single-warehouse tool, at the
+cost of a server you have to think about. If this stays one screen in one
+building, it is a reasonable second choice.
+
+### Signing the warehouse TV in
+
+Every page is behind the shared password, including the display. The session
+cookie lasts **90 days** and is persistent, so the TV is signed in once and
+survives reboots. It only needs signing in again if the browser profile is
+cleared or 90 days pass. If the session does lapse, the board reloads itself to
+the login screen rather than sitting there showing stale numbers.
 
 ---
 
