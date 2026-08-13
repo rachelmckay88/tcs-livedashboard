@@ -1,26 +1,29 @@
 // The Celebration Society — Warehouse Dashboard
 // Prisma schema
 //
-// PORTABILITY NOTE
-// ----------------
-// The datasource below is SQLite for local development. To move to a hosted
-// Postgres (Vercel Postgres, Neon, Supabase, RDS) change `provider` to
-// "postgresql" and point DATABASE_URL at the new server, then run
-// `npx prisma migrate deploy`.
+// DATASOURCE
+// ----------
+// Postgres (Neon, ap-southeast-2). Set DATABASE_URL to the **pooled**
+// connection string — serverless functions open a connection per invocation
+// and would exhaust a direct connection limit.
 //
-// This schema is deliberately written to stay portable:
-//   * No SQLite-specific column types.
-//   * No Prisma `enum` blocks — SQLite does not support them. Enumerated
-//     values (overallStatus) are stored as String and validated in the
-//     application layer by Zod (see src/lib/dashboard/schema.ts). This keeps
-//     one single source of truth for allowed values and works on any database.
+// This schema stays deliberately portable:
+//   * No provider-specific column types.
+//   * No Prisma `enum` blocks. Enumerated values (overallStatus, note kind)
+//     are stored as String and validated in the application layer by Zod
+//     (src/lib/dashboard/schema.ts), so there is one source of truth for the
+//     allowed values and the schema runs on any database.
+//
+// Note that migration FILES are not portable even though the schema is —
+// Prisma writes them in the dialect of whichever provider was set. Switching
+// provider means regenerating `prisma/migrations/`, not reusing it.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
