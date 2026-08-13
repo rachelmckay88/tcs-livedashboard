@@ -14,6 +14,17 @@ import { prisma } from "@/lib/db";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * Strip anything credential-shaped before a message goes out over a public
+ * endpoint. Prisma's connection errors quote the datasource URL, which carries
+ * the password.
+ */
+function redact(message: string): string {
+  return message
+    .replace(/postgres(?:ql)?:\/\/\S+/gi, "[connection-string-redacted]")
+    .replace(/:\/\/[^@\s]+@/g, "://[credentials-redacted]@");
+}
+
 export async function GET() {
   const env = {
     DATABASE_URL: Boolean(process.env.DATABASE_URL),
@@ -21,9 +32,12 @@ export async function GET() {
     ADMIN_SESSION_SECRET: Boolean(process.env.ADMIN_SESSION_SECRET),
   };
 
-  let database: { reachable: boolean; error?: string; dashboards?: number } = {
-    reachable: false,
-  };
+  let database: {
+    reachable: boolean;
+    error?: string;
+    detail?: string;
+    dashboards?: number;
+  } = { reachable: false };
 
   if (env.DATABASE_URL) {
     try {
@@ -34,9 +48,10 @@ export async function GET() {
     } catch (error) {
       database = {
         reachable: false,
-        // Class name only — Prisma error messages can echo the connection
-        // string, which must never appear on a public endpoint.
         error: error instanceof Error ? error.name : "UnknownError",
+        // Redacted — Prisma quotes the datasource URL (password included) in
+        // connection errors, so this must never go out raw.
+        detail: error instanceof Error ? redact(error.message).slice(0, 400) : undefined,
       };
     }
   } else {
