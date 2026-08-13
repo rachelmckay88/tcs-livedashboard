@@ -1,0 +1,173 @@
+// The Celebration Society — Warehouse Dashboard
+// Prisma schema
+//
+// PORTABILITY NOTE
+// ----------------
+// The datasource below is SQLite for local development. To move to a hosted
+// Postgres (Vercel Postgres, Neon, Supabase, RDS) change `provider` to
+// "postgresql" and point DATABASE_URL at the new server, then run
+// `npx prisma migrate deploy`.
+//
+// This schema is deliberately written to stay portable:
+//   * No SQLite-specific column types.
+//   * No Prisma `enum` blocks — SQLite does not support them. Enumerated
+//     values (overallStatus) are stored as String and validated in the
+//     application layer by Zod (see src/lib/dashboard/schema.ts). This keeps
+//     one single source of truth for allowed values and works on any database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// One row per warehouse day. The morning admin publishes/updates today's row;
+/// previous days are retained so /history can show them.
+///
+/// DATE & TIME STORAGE
+/// -------------------
+/// The business runs on Australia/Sydney time. Storing calendar dates as
+/// DateTime would force a UTC round-trip and can shift a date by a day
+/// (Sydney is UTC+10/+11, so "13 August 00:00 Sydney" is "12 August 13:00 UTC").
+/// Because these fields are *calendar dates*, not instants, they are stored as
+/// plain strings:
+///   dashboardDate / personalisingOrderDate / shippingOrderDate -> "YYYY-MM-DD"
+///   courierCutoff                                              -> "HH:mm" (24h)
+/// Only createdAt/updatedAt are true instants and remain DateTime (UTC),
+/// rendered into Sydney time for display. See src/lib/dates.ts.
+model DailyDashboard {
+  id String @id @default(cuid())
+
+  /// Sydney calendar date this dashboard describes, "YYYY-MM-DD". One per day.
+  dashboardDate String @unique
+
+  // --- Production / personalising -----------------------------------------
+  // Nullable on purpose: a blank field means "not entered", which the display
+  // hides rather than showing a misleading 0.
+  //
+  // NOTE ON TARGETS vs PROGRESS
+  // The counts here are the DAY'S TARGET, set once in the morning and then left
+  // alone. How much of that target is actually done is recorded separately in
+  // DashboardCheckpoint as the day goes on. Keeping the two apart is what makes
+  // the progress meters and the growth-through-the-day view possible.
+  /// "YYYY-MM-DD" — the order batch date currently being personalised.
+  personalisingOrderDate   String?
+  /// TARGET for the day. FUTURE: could be supplied by Shopify.
+  personalisedOrderCount   Int?
+  /// FUTURE: could be supplied by Shopify (line-item quantity in batch).
+  personalisedItemCount    Int?
+  /// FUTURE: could be supplied by Shopify.
+  nonPersonalisedOrderCount Int?
+
+  // --- Shipping ------------------------------------------------------------
+  /// "YYYY-MM-DD" — the order batch date being shipped today.
+  shippingOrderDate String?
+  /// TARGET for the day. FUTURE: could be supplied by Shopify fulfilment data.
+  shippingOrderCount Int?
+  /// FUTURE: could be supplied by Shopify fulfilment data.
+  shippingItemCount  Int?
+  /// "HH:mm" 24-hour Sydney local time, e.g. "14:30" -> displayed "2:30 PM".
+  courierCutoff      String?
+
+  // --- Exceptions / priority ----------------------------------------------
+  /// FUTURE: could be derived from Shopify shipping tier / order tags.
+  expressCount  Int?
+  /// FUTURE: could be derived from Shopify order tags.
+  priorityCount Int?
+  /// Likely to stay manual — redos are usually a floor decision, not a Shopify field.
+  redoCount     Int?
+  /// Likely to stay manual — holds are an operational judgement.
+  onHoldCount   Int?
+
+  // --- Operational status (always manual — human operational truth) --------
+  /// One of ON_TRACK | BUSY | ACTION_REQUIRED. Validated in the app layer.
+  overallStatus    String  @default("ON_TRACK")
+  dailyMessage     String?
+  secondaryMessage String?
+  updatedBy        String?
+
+  /// True once an admin has pressed "Publish". Distinguishes a real published
+  /// day from an auto-created empty placeholder row.
+  isPublished Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checkpoints DashboardCheckpoint[]
+  notes       DashboardNote[]
+  staff       StaffAssignment[]
+
+  @@index([dashboardDate])
+}
+
+/// A point in the day when someone records how far production has got:
+/// the 9 AM report, the 12 PM check-in, the 3 PM check-in.
+///
+/// Counts here are CUMULATIVE totals for the day so far, not increments — "142
+/// personalised by noon", not "94 since 9 AM". Cumulative is what people can
+/// actually count on the floor, and the per-checkpoint gain is simple to derive
+/// for display. Storing increments instead would make a single miscount corrupt
+/// every later figure.
+model DashboardCheckpoint {
+  id          String         @id @default(cuid())
+  dashboardId String
+  dashboard   DailyDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  /// Shown on the board, e.g. "9 AM REPORT".
+  label String
+  /// "HH:mm" Sydney. Sort key, and used to place the checkpoint in the day.
+  scheduledTime String
+
+  /// Cumulative orders personalised by this point. Null = not recorded yet.
+  personalisedComplete Int?
+  /// Cumulative orders shipped by this point. Null = not recorded yet.
+  shippedComplete Int?
+  /// Optional short note captured at the check-in.
+  note String?
+
+  /// When a human actually submitted it. Null means "still to come" — which is
+  /// why this is not inferred from createdAt (the row is created empty in the
+  /// morning alongside the others).
+  recordedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dashboardId, scheduledTime])
+  @@index([dashboardId])
+}
+
+/// Something that came up during the day: a heads up, low stock, or a delivery
+/// expected. Separate from the morning `dailyMessage` because these accumulate
+/// and are timestamped — the floor needs to see that a note is new.
+model DashboardNote {
+  id          String         @id @default(cuid())
+  dashboardId String
+  dashboard   DailyDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  /// NOTE | STOCK_LOW | STOCK_EXPECTED. Validated in the app layer (see types.ts).
+  kind String @default("NOTE")
+  body String
+
+  createdAt DateTime @default(now())
+
+  @@index([dashboardId])
+}
+
+/// Who is in today and what they are on. Re-entered per day rather than kept as
+/// a staff table: this is a roster for one day, not employee records, and the
+/// warehouse should never have to maintain a people database to use the board.
+model StaffAssignment {
+  id          String         @id @default(cuid())
+  dashboardId String
+  dashboard   DailyDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  name      String
+  role      String
+  sortOrder Int    @default(0)
+
+  @@index([dashboardId])
+}

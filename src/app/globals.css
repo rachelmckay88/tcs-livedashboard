@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   THE CELEBRATION SOCIETY — WAREHOUSE DASHBOARD DESIGN TOKENS
+
+   Palette taken from the brand itself (thecelebrationsociety.com.au):
+     #231F20  charcoal — the logo wordmark
+     #CB9D2D  antique gold — the logo's offset shadow
+     Poppins  — the site's typeface
+   The logo is heavy caps in charcoal with a gold offset, so the board is built
+   the same way round: warm ivory ground, charcoal type, gold doing the
+   accenting. Christmas red is held back for genuine urgency only.
+
+   Ivory rather than pure white: a full-brightness white panel on a large TV is
+   glaring across a working day, and the warm tint matches the brand's paper
+   feel while keeping charcoal-on-ivory contrast well above AA.
+   =========================================================================== */
+
+@theme {
+  /* Ground & surfaces ----------------------------------------------------- */
+  --color-ivory: #f7f2e9;
+  --color-ivory-deep: #efe7d8;
+  --color-surface: #fffdf9;
+  --color-surface-sunk: #faf5ec;
+
+  /* Ink ------------------------------------------------------------------- */
+  --color-ink: #231f20; /* brand charcoal */
+  --color-ink-soft: #4a4342;
+  --color-ink-muted: #7a706c;
+  --color-ink-faint: #a89e98;
+
+  /* Gold ------------------------------------------------------------------ */
+  --color-gold: #cb9d2d; /* brand gold */
+  --color-gold-deep: #a07818; /* passes 3:1 on ivory — use for marks/meters */
+  --color-gold-soft: #f0dfae;
+  --color-gold-wash: #fbf3de;
+
+  /* Status. Validated against the light surface: all >= 3:1.
+     Never used alone — every status also carries an icon and a word. */
+  --color-ontrack: #1e7a4b;
+  --color-ontrack-wash: #e6f2ea;
+  --color-busy: #c77b10;
+  --color-busy-wash: #fdf0dc;
+  --color-action: #c8102e; /* Christmas red, reserved for urgency */
+  --color-action-wash: #fceaed;
+
+  /* Rules & edges --------------------------------------------------------- */
+  --color-rule: #e4dac6;
+  --color-rule-soft: #efe8da;
+
+  /* Display type scale.
+     Sized in vw so a 1920x1080 TV is genuinely filled, with clamp() floors and
+     ceilings so laptops and tablets stay sane. At 1920px, 1vw = 19.2px.
+     Tuned so the whole board fits 1080px tall without scrolling — if you
+     enlarge one, re-check that the board still fits. */
+  --text-hero: clamp(2.75rem, 4.2vw, 5.75rem); /* countdown number ~81px */
+  --text-batch: clamp(2rem, 3.5vw, 4.75rem); /* order batch dates ~67px */
+  --text-progress: clamp(1.6rem, 2.7vw, 3.6rem); /* done / target ~52px */
+  --text-figure: clamp(1.4rem, 2.1vw, 2.9rem); /* secondary metrics ~40px */
+  --text-exception: clamp(1.5rem, 2.4vw, 3.2rem); /* exception counts ~46px */
+  --text-message: clamp(0.95rem, 1.45vw, 2rem); /* heads up copy ~28px */
+  --text-message-sub: clamp(0.85rem, 1.05vw, 1.4rem); /* notes / secondary ~20px */
+  --text-brandline: clamp(1.1rem, 1.7vw, 2.35rem); /* WAREHOUSE TODAY */
+  --text-panel-label: clamp(0.8rem, 1vw, 1.35rem); /* panel headings */
+  --text-eyebrow: clamp(0.62rem, 0.72vw, 0.95rem); /* small caps labels */
+  --text-metric-label: clamp(0.62rem, 0.78vw, 1.05rem); /* under big numbers */
+
+  --font-display: var(--font-poppins), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-ivory);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  /* Numbers must never jitter as they change on a screen watched all day. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Very soft warmth behind the board — enough that the ivory reads as a
+   considered surface rather than a flat fill, not enough to distract. */
+.tcs-stage {
+  background-image:
+    radial-gradient(ellipse 80% 55% at 8% -8%, rgba(203, 157, 45, 0.13), transparent 62%),
+    radial-gradient(ellipse 65% 45% at 96% 0%, rgba(203, 157, 45, 0.08), transparent 58%);
+}
+
+/* Panels: white card on ivory, warm hairline, soft lift. */
+.tcs-panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  box-shadow: 0 1px 2px rgba(35, 31, 32, 0.04), 0 8px 24px -16px rgba(35, 31, 32, 0.18);
+}
+
+/* The brand's signature move: heavy caps with a gold offset shadow.
+   Used for the WAREHOUSE TODAY line so the board is unmistakably theirs. */
+.tcs-wordmark {
+  text-shadow: 0.055em 0.055em 0 var(--color-gold);
+}
+
+/* Letterspaced small-caps label treatment used throughout. */
+.tcs-eyebrow {
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Tighter tracking for labels in narrow columns (metric and exception
+   captions) — full tracking makes "NON-PERSONALISED ORDERS" wider than its
+   column and forces an ugly wrap. */
+.tcs-eyebrow-tight {
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Slow breathing dot showing the board is live. Deliberately the only motion
+   on the screen: nothing flashes, nothing slides. */
+@keyframes tcs-breathe {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.tcs-live-dot {
+  animation: tcs-breathe 3.2s ease-in-out infinite;
+}
+
+/* Data updates fade in rather than snapping, so a refresh never looks like a
+   page reload to someone glancing at the screen. */
+@keyframes tcs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tcs-fade-in {
+  animation: tcs-fade-in 420ms ease-out;
+}
+
+/* Progress meters animate their width so a check-in visibly *lands* — the one
+   place a little motion earns its keep, because watching the bar jump forward
+   is the point of the whole feature. */
+.tcs-meter-fill {
+  transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tcs-live-dot,
+  .tcs-fade-in {
+    animation: none;
+  }
+  .tcs-meter-fill {
+    transition: none;
+  }
+}
+
+/* Admin form controls — large targets, high contrast, keyboard friendly. */
+.tcs-field {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-rule);
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  padding: 0.85rem 1rem;
+  font-size: 1.125rem;
+  line-height: 1.4;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.tcs-field::placeholder {
+  color: var(--color-ink-faint);
+}
+
+.tcs-field:focus-visible {
+  outline: none;
+  border-color: var(--color-gold-deep);
+  box-shadow: 0 0 0 3px rgba(203, 157, 45, 0.3);
+}
+
+.tcs-field[aria-invalid="true"] {
+  border-color: var(--color-action);
+}
+
+/* Consistent visible focus for keyboard users across the app. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-gold-deep);
+  outline-offset: 2px;
+}
