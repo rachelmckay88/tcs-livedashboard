@@ -1,3 +1,4 @@
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
 
 /**
@@ -46,22 +47,35 @@ function connectionUrl(): string | undefined {
 }
 
 /**
- * Single shared Prisma client.
+ * Single shared Prisma client, talking to Neon through its serverless driver.
+ *
+ * WHY THE ADAPTER RATHER THAN A PLAIN CONNECTION STRING
+ * Prisma's default engine opens a raw TCP connection and does its own TLS. On
+ * Vercel that handshake failed against Neon even though the socket itself
+ * opened in 2ms from the same region — the failure was reported as
+ * "Can't reach database server", which is misleading, and it survived every
+ * network-level fix (region, timeouts, engine target, channel_binding).
+ *
+ * The Neon adapter connects over Neon's own serverless driver instead, which
+ * is what both Neon and Prisma recommend for serverless. It also suits the
+ * platform better: no TCP pool to maintain across short-lived invocations.
  *
  * Next.js hot-reloads modules in development, which would otherwise create a
- * new connection pool on every edit until the database runs out of handles.
- * Caching the client on `globalThis` keeps exactly one instance per process.
+ * new client on every edit. Caching on `globalThis` keeps one per process.
  */
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    datasourceUrl: connectionUrl(),
+function createClient(): PrismaClient {
+  const url = connectionUrl();
+  return new PrismaClient({
+    adapter: new PrismaNeon({ connectionString: url }),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
+}
+
+export const prisma = globalForPrisma.prisma ?? createClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
