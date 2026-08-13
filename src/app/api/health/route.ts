@@ -20,9 +20,13 @@ export const dynamic = "force-dynamic";
  * the password.
  */
 function redact(message: string): string {
+  // Only redact URLs that actually carry credentials (i.e. contain "@").
+  // A blanket match on the protocol also blanks the bare "postgresql://" that
+  // Prisma prints when *explaining* the expected format, which destroys the
+  // most useful error message it produces.
   return message
-    .replace(/postgres(?:ql)?:\/\/\S+/gi, "[connection-string-redacted]")
-    .replace(/:\/\/[^@\s]+@/g, "://[credentials-redacted]@");
+    .replace(/postgres(?:ql)?:\/\/\S*@\S*/gi, "[connection-string-redacted]")
+    .replace(/:\/\/[^@\s/]+:[^@\s/]+@/g, "://[credentials-redacted]@");
 }
 
 export async function GET() {
