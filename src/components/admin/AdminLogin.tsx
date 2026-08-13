@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 
@@ -51,8 +50,14 @@ export function AdminLogin() {
         <p className="mt-6 text-sm font-semibold uppercase tracking-[0.2em] text-gold-deep">
           THE CELEBRATION SOCIETY
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink">Warehouse Admin</h1>
-        <p className="mt-3 text-ink-muted">Enter the admin password to update today&rsquo;s board.</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink">Warehouse Today</h1>
+        <p className="mt-3 text-ink-muted">
+          Enter the warehouse password to see today&rsquo;s board.
+        </p>
+        <p className="mt-2 text-sm text-ink-faint">
+          You&rsquo;ll stay signed in on this device for 90 days — the warehouse screen only needs
+          this once.
+        </p>
 
         <label htmlFor="password" className="mt-8 block text-sm font-semibold text-ink-soft">
           Password
@@ -85,12 +90,6 @@ export function AdminLogin() {
           {isSubmitting ? "SIGNING IN…" : "SIGN IN"}
         </button>
 
-        <Link
-          href="/"
-          className="mt-6 block text-center text-sm text-ink-faint underline-offset-4 hover:text-ink-muted hover:underline"
-        >
-          Back to the warehouse display
-        </Link>
       </form>
     </main>
   );

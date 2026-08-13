@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/auth";
 import { getTodayDashboard } from "@/lib/dashboard/service";
 
 /**
@@ -6,10 +7,17 @@ import { getTodayDashboard } from "@/lib/dashboard/service";
  *
  * Returns the same `DashboardView` the server-rendered page used, so the
  * client can swap it into state directly with no reshaping.
+ *
+ * Gated like the page it feeds — otherwise the whole board would be readable
+ * as JSON by anyone, which would make locking the page pointless.
  */
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
   try {
     const view = await getTodayDashboard();
     return NextResponse.json(view, {

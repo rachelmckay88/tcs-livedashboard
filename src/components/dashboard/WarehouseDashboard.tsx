@@ -38,6 +38,15 @@ export function WarehouseDashboard({ initialView }: { initialView: DashboardView
     async function poll() {
       try {
         const response = await fetch("/api/dashboard/today", { cache: "no-store" });
+
+        // Session expired or signed out elsewhere. Reload so the login screen
+        // appears: a board that keeps showing yesterday's numbers under a
+        // "LIVE" label is worse than one that plainly asks to be signed in.
+        if (response.status === 401) {
+          window.location.reload();
+          return;
+        }
+
         if (!response.ok) return;
         const next = (await response.json()) as DashboardView;
         if (cancelled) return;

@@ -3,6 +3,7 @@ import { ArrowLeft, PencilLine } from "lucide-react";
 import { listDashboards } from "@/lib/dashboard/service";
 import { formatBatchDate, formatShortDate } from "@/lib/dates";
 import { STATUS_LABELS, type OverallStatus } from "@/lib/dashboard/types";
+import { AdminLogin } from "@/components/admin/AdminLogin";
 import { isAdminAuthenticated } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,13 @@ const STATUS_PILL: Record<OverallStatus, string> = {
 const num = (value: number | null) => (value === null ? "—" : value.toLocaleString("en-AU"));
 
 export default async function HistoryPage() {
-  const [records, isAdmin] = await Promise.all([listDashboards(), isAdminAuthenticated()]);
+  if (!(await isAdminAuthenticated())) {
+    return <AdminLogin />;
+  }
+
+  // Everyone who gets this far is signed in, so the edit links always show.
+  const records = await listDashboards();
+  const isAdmin = true;
 
   return (
     <div className="tcs-stage min-h-screen">

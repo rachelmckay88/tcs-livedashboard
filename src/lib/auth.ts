@@ -1,12 +1,18 @@
 /**
- * Minimal admin authentication.
+ * Minimal shared-password authentication.
  *
  * SCOPE: deliberately not a user system. There is one shared password in
  * ADMIN_PASSWORD, and a signed cookie proving it was entered. That is the
  * right weight for an internal tool used by one or two people each morning.
  *
- * The warehouse display at "/" is intentionally public — the TV cannot be
- * asked to log in every morning, and the data is not sensitive.
+ * EVERY page is behind it, including the warehouse display — once the board is
+ * on a public URL, order volumes, staff names and daily notes should not be
+ * readable by anyone who guesses the address.
+ *
+ * The session is deliberately long. The TV signs in once and the cookie
+ * survives reboots (it has a maxAge, so it is persistent, not a session
+ * cookie). It only needs signing in again if the browser profile is wiped or
+ * 90 days pass.
  *
  * The cookie holds no secret: it is `expiry.HMAC(secret, expiry)`. Without
  * ADMIN_SESSION_SECRET nobody can forge one, and the expiry cannot be edited
@@ -16,7 +22,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 export const ADMIN_COOKIE_NAME = "tcs_admin";
-const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SESSION_DURATION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 function getSecret(): string {
   const secret = process.env.ADMIN_SESSION_SECRET;
