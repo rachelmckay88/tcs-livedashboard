@@ -20,6 +20,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Vercel's Node runtime is Amazon Linux 2023 (OpenSSL 3). Without the
+  // matching engine the client loads but TLS negotiation fails, which Prisma
+  // reports as "Can't reach database server" — misleading, because the socket
+  // opens fine. "native" keeps local development working.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

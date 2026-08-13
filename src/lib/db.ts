@@ -30,6 +30,13 @@ function connectionUrl(): string | undefined {
       url.searchParams.set("pgbouncer", "true");
     }
 
+    // Neon's console hands out connection strings containing
+    // `channel_binding=require`. It is a libpq option; Prisma's Rust driver
+    // does not implement SCRAM channel binding, so requiring it can fail the
+    // handshake. Dropping it does not weaken anything meaningful — the
+    // connection is still SCRAM-SHA-256 over TLS, enforced by sslmode.
+    url.searchParams.delete("channel_binding");
+
     return url.toString();
   } catch {
     // Not a parseable URL — hand it back untouched and let Prisma produce its
